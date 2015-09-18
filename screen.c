@@ -190,15 +190,25 @@ void scrWrite( unsigned char c ) {
 		case 13:
 			break;
 		case 27:
-			// d = getch();
-			// switch ( d ) {
-			kbPutCh();
-			switch ( kbGettCh() ) {
-				case 91:
-					// e = getch();
-					// switch ( e ) {
+			#ifdef _KEYBOARD
+				#ifndef THREAD_KEYBOARD	
 					kbPutCh();
-					switch ( kbGettCh() ) {
+				#endif
+				switch ( kbGetCh() ) {
+			#else
+				d = getch();
+				switch ( d ) {
+			#endif
+				case 91:
+				#ifdef _KEYBOARD
+					#ifndef THREAD_KEYBOARD	
+						kbPutCh();
+					#endif
+					switch ( kbGetCh() ) {
+				#else
+					e = getch();
+					switch ( e ) {
+				#endif
 						case 65:		//	KEY_UP
 							scrDecY();
 							break;

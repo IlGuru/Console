@@ -6,6 +6,8 @@
 #include "./display.h"
 #include "./common.h"
 
+// #include "./keyboard.h"
+
 #define SCR_XMAX_SIZE ( 16 )
 #define SCR_YMAX_SIZE ( 2 )
 #define SCR_POSX_MIN  0
@@ -18,6 +20,8 @@
 #define f_srcLastColumn		2
 #define f_srcLastRow		3
 #define f_srcContentChanged	7
+
+// #define THREAD_SCREEN_REPAINT
 
 typedef struct {
 	//	Buffer

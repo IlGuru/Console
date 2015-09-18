@@ -15,7 +15,7 @@ common.o : common.c common.h
 registry.o : registry.c registry.h common.h
 	$(CC) -c registry.c
 
-screen.o : screen.c screen.h display.h common.h
+screen.o : screen.c screen.h display.h common.h keyboard.h
 	$(CC) -c screen.c
 
 display.o : display.c display.h bit_oper.h common.h

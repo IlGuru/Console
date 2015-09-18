@@ -5,10 +5,8 @@
 
 #include "./registry.h"
 #include "./screen.h"
-#include "./keyboard.h"
+// #include "./keyboard.h"
 #include "./common.h"
-
-// #define THREAD_SCREEN_REPAINT
 
 uchar memory[ 4096 ];
 uchar *mem_top;
@@ -84,24 +82,24 @@ void DumpMem( int x_from, int x_to ) {
 
 void DoScreenRepaint() {
 	// printf("\033[1;1H");	//	Cursore Home
-	printf("\e[1;1H\e[2J");	//	Clear Screen
+	// printf("\e[1;1H\e[2J");	//	Clear Screen
 	scrRepaint();
 
-	printf("\n\r");
-	printf("\n\r");
+	// printf("\n\r");
+	// printf("\n\r");
 
-	MemInfo();
+	// MemInfo();
 	
 	#ifdef _REGISTRY	
 	// DumpMem( (int) ((unsigned char*)p_registry-(unsigned char*)memory), (int) ((unsigned char*)p_registry-(unsigned char*)memory+sizeof(t_registry)-1) );
 	#endif
 	
 	#ifdef _KEYBOARD	
-	DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
+	// DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
 	#endif
 	
 	#ifdef _SCREEN	
-	DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
+	// DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
 	#endif
 
 	// printf("\n\rx: %d, y: %d, xs: %d, xe: %d, ys: %d, ye: %d\n", p_screen->x, p_screen->y, p_screen->xs, p_screen->xe, p_screen->ys, p_screen->ye);
@@ -113,8 +111,8 @@ void DoScreenRepaint() {
 pthread_t 	thScreenRepaint;
 
 void *th_DoScreenRepaint( void *param ) {
-	char *p_memory;
-	p_memory = (char *) param;
+	// char *p_memory;
+	// p_memory = (char *) param;
 	
 	while ( 1 ) {
 		DoScreenRepaint();
@@ -124,29 +122,78 @@ void *th_DoScreenRepaint( void *param ) {
 	pthread_exit(NULL);
 }
 #endif
-	
+
+// #ifdef THREAD_KEYBOARD	
+// pthread_t 	thReadKB;
+// void *th_DoReadKB( void *param ) {
+	// while ( 1 ) {
+		// kbPutCh();
+		// /*sleepMs( 100 );*/
+	// }
+	// pthread_exit(NULL);
+// }	
+// #endif
+
 int main( int argc, char *argv[] ) {
 
+	#ifndef _KEYBOARD
 	uchar c = '\0';
+	#endif
 	
 	Init();
 	
 	DoScreenRepaint();
 
 	#ifdef THREAD_SCREEN_REPAINT
-	if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)memory ) ) {
-		printf("error creating DoScreenRepaint thread.\n");
+	// if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)memory ) ) {
+	if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, NULL ) {
+		printf("error creating th_DoScreenRepaint thread.\n");
 	}	
 	#endif
+
+	// #ifdef THREAD_KEYBOARD	
+	// if ( pthread_create( &thReadKB, NULL, th_DoReadKB, NULL ) ) {
+		// printf("error creating th_DoReadKB thread.\n");
+	// }	
+	// #endif
+
+	// DoScreenRepaint();
+	// printf( "\nGO" );
+	// sleepMs( 2000 );
+	// #ifdef _KEYBOARD	
+	// DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
+	// #endif
+	// printf( "\nkbGetCh %02X", kbGetCh() );
+	// #ifdef _KEYBOARD	
+	// DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
+	// #endif
+	// return 0;
 	
 	while (1) {
-		// c = getch();
-		// scrWrite( c );
-		kbPutCh();
-		scrWrite( kbGettCh() );
+	
+		#ifdef _KEYBOARD
+			#ifndef THREAD_KEYBOARD	
+				kbPutCh();
+			#endif
+			scrWrite( kbGetCh() );
+		#else
+			c = getch();
+			scrWrite( c );
+		#endif
+		
 		#ifndef THREAD_SCREEN_REPAINT
 		DoScreenRepaint();
 		#endif
+		
+		// if ( TSTBIT( p_keyboard->status , KB_BUFFER_EMPTY ) == 0 ) {
+			// printf("\n\r" );
+			// #ifdef _KEYBOARD	
+			// DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
+			// #endif
+			// printf("\n\r c: %02X", kbGetCh() );
+		// }
+		
+		sleepMs( 100 );
 	}
 	
 	return 0;
