@@ -1,121 +1,178 @@
+
 #include "./display.h"
-
-//----------------------------------------------------
-//	Display
-
-void _clrdsp() {
-	const char* CLEAR_SCREE_ANSI = "\e[1;1H\e[2J";
-	printf( CLEAR_SCREE_ANSI );
+short int dspXmax() {
+	return ( p_display->x_max );
 }
 
-//----------------------------------------------------
-void dsp_clear() {
-	_clrdsp();
-	dspMem->x_pos = 0;
-	dspMem->y_pos = 0;
+short int dspYmax() {
+	return ( p_display->y_max );
 }
 
-void dsp_init() {
+short int dspXget() {
+	return ( p_display->x_pos );
+}
 
-	dspMem = (t_dspMem *) malloc( sizeof( t_dspMem ) );
+void dspXset( short int p ) {
+	p_display->x_pos = p;
+}
 
-	for (dspMem->y_pos = 0 ; dspMem->y_pos < DSP_YMAX_SIZE ; dspMem->y_pos++) {
-		for (dspMem->x_pos = 0 ; dspMem->x_pos < DSP_XMAX_SIZE ; dspMem->x_pos++) {
-			dspMem->Buffer[ dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos ] = ' ';		
+short int dspYget() {
+	return ( p_display->y_pos );
+}
+
+void dspYset( short int p ) {
+	p_display->y_pos = p;
+}
+
+void dspIncY() {
+	p_display->y_pos++;
+	if ( p_display->y_pos == DSP_YMAX_SIZE ) {
+		p_display->y_pos = DSP_POSY_MAX; 
+		return;		
+	}
+}
+
+void dspIncX() {
+	p_display->x_pos++;
+	if ( p_display->x_pos == DSP_XMAX_SIZE ) {
+		if ( p_display->y_pos < DSP_POSY_MAX ) {
+			p_display->x_pos = DSP_POSX_MIN;
+			dspIncY();
+		} else {
+			p_display->x_pos = DSP_POSX_MAX;
 		}
 	}
+}
+
+void dspDecY() {
+	p_display->y_pos--;
+	if ( p_display->y_pos < DSP_POSY_MIN ) {
+		p_display->y_pos = DSP_POSY_MIN;
+	}
+}
+
+void dspDecX() {
+	p_display->x_pos--;
+	if ( p_display->x_pos < DSP_POSX_MIN ) {
+		if ( p_display->y_pos > DSP_POSY_MIN ) {
+			p_display->x_pos = DSP_POSX_MAX;
+			dspDecY();
+		} else {
+			p_display->x_pos = DSP_POSX_MIN;
+		}
+	}
+}
+
+void dspCursorMove() {
+#ifdef DSP_BOX
+	wmove( p_display->wnd, p_display->y_pos+1, p_display->x_pos+1 );
+#else
+	wmove( p_display->wnd, p_display->y_pos, p_display->x_pos );
+#endif
+}
+
+#ifdef DSP_THREAD
+void *_dspRefresh( void *param ) {
+	t_display *_display;
+	_display = (t_display *) param;
 	
-	dspMem->x_max		= DSP_XMAX_SIZE;
-	dspMem->y_max		= DSP_YMAX_SIZE;
+	while ( 1 ) {
+		if ( _display->status && 0b00000001 != 0 ) {
+			_display->status &= 0b11111110;
+			refresh(); // curses call to update screen
+		}
+	}
 
-	dsp_clear();
+	pthread_exit(NULL);
+}
+#endif
+#ifndef DSP_THREAD
+void dspRefresh() {
+	refresh(); // curses call to update screen
+}
+#endif
+
+void dspCursorHome() {
+	p_display->x_pos = 0;
+	p_display->y_pos = 0;
+	dspCursorMove();
 }
 
-//----------------------------------------------------
-
-void dsp_inc_xpos() {
-
-	dspMem->x_pos++;
-
-	if ( dspMem->x_pos >= DSP_XMAX_SIZE ) {
-		dspMem->x_pos = 0;
-		dsp_inc_ypos();
-	}		
-
+void dspClear() {
+	wclear( p_display->wnd );
+#ifdef DSP_BOX
+	box( p_display->wnd, ACS_VLINE, ACS_HLINE );
+#endif
+	dspCursorHome();
 }
 
-void dsp_inc_ypos() {
+void dspInit() {
+	p_display	= malloc( sizeof( t_display ) );
+	
+	// p_display->x_pos = 0;
+	// p_display->y_pos = 0;
+	p_display->x_max = DSP_XMAX_SIZE;
+	p_display->y_max = DSP_YMAX_SIZE;
 
-	dspMem->y_pos++;
+	p_display->wnd 	= initscr();
+	
+#ifdef DSP_BOX
+	wresize( p_display->wnd, DSP_YBOX_SIZE, DSP_XBOX_SIZE );
+	// wclear( p_display->wnd );
+	// box( p_display->wnd, ACS_VLINE, ACS_HLINE );
+#else
+	wresize( p_display->wnd, DSP_YMAX_SIZE, DSP_XMAX_SIZE );
+	// wclear( p_display->wnd );
+#endif
 
-	if ( dspMem->y_pos >= DSP_YMAX_SIZE ) {
-		return;
-	}		
+	dspClear();
+	
+#ifdef DSP_DEBUG
+	printf("\n\rWND: %08X\n\r", p_display->wnd);
+#endif
 
+	dspCursorHome();
+
+	cbreak(); // curses call to set no waiting for Enter key
+	noecho(); // curses call to set no echoing
+	
+#ifndef DSP_THREAD
+	refresh(); // curses call to update screen
+#else
+	p_display->status &= 0b11111110;
+	p_display->rc = pthread_create(&p_display->th, NULL, _dspRefresh, (void *)p_display);
+	if ( p_display->rc ) {
+		printf("error creating thread.");
+	}	
+#endif
 }
 
-short int dsp_xmax() {
-	return ( dspMem->x_max );
-}
+void dspWrite( char dc ) {
+ 
+	if ( dc >= 32 && dc != 127 ) {
+		wdelch( p_display->wnd ); 
+		winsch( p_display->wnd, dc ); // curses calls to replace character under cursor by dc
 
-short int dsp_ymax() {
-	return ( dspMem->y_max );
-}
-
-short int dsp_xget() {
-	return ( dspMem->x_pos );
-}
-
-void dsp_xset( short int p ) {
-	dspMem->x_pos = p;
-}
-
-short int dsp_yget() {
-	return ( dspMem->y_pos );
-}
-
-void dsp_yset( short int p ) {
-	dspMem->y_pos = p;
-}
-
-unsigned char dsp_read() {
-	return ( dspMem->Buffer[ dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos ] );
-}
-
-void dsp_write( unsigned char c ) {
-
-	if ( dspMem->y_pos < DSP_YMAX_SIZE ) {
-		dspMem->Buffer[ dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos ] = c;
-		dsp_inc_xpos();
+		dspIncX();
+		dspCursorMove();
 	} else {
-		return;
-	}		
+		switch ( dc ) {
+			case 127:
+				dspDecX();
+				dspCursorMove();
 
-}
-
-//----------------------------------------------------
-
-void dsp_print( unsigned char c ) {
-	if ( c >= 32 )
-		putchar( c );		
-}
-
-void dsp_repaint() {
-	
-	dsp_clear();
-		
-	for (dspMem->y_pos = 0 ; dspMem->y_pos < DSP_YMAX_SIZE ; dspMem->y_pos++) {
-		for (dspMem->x_pos = 0 ; dspMem->x_pos <= DSP_XMAX_SIZE ; dspMem->x_pos++) {
-			if ( dspMem->x_pos < DSP_XMAX_SIZE ) {
-			// printf("%d:%c ", dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos, dspMem->Buffer[ dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos ] );
-			// printf("%d,%d ", dspMem->x_pos, dspMem->y_pos);
-				dsp_print( dspMem->Buffer[ dspMem->y_pos*DSP_XMAX_SIZE + dspMem->x_pos ] );	
-			} else {
-			// if ( dspMem->x_pos == DSP_XMAX_SIZE ) {
-				putchar( '\n' );
-				putchar( '\r' );
-			}
+				wdelch( p_display->wnd ); 
+				winsch( p_display->wnd, ' ' ); // curses calls to replace character under cursor by dc
+				break;
+			default:
+				printf("%02X", dc);
+				break;
 		}
 	}
-
+#ifndef DSP_THREAD
+	refresh(); // curses call to update screen+
+#else
+	p_display->status |= 0b00000001;
+#endif
 }
+

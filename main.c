@@ -1,40 +1,58 @@
+// gcc -o main.exe main.c stuff.c registry.c screen.c display.c -lcurses -lpthread 
+
 #include <stdio.h>
 #include <curses.h>
 #include <pthread.h>
-#include "./screen.h"
+#include <windows.h>
+
 #include "./registry.h"
-#include "./keyboard.h"
+#include "./screen.h"
+#include "./stuff.h"
 
-//	gcc -o main.exe main_003.c registry.c display.c screen.c keyboard.c -lcurses -lpthread
+#define uchar unsigned char
 
-unsigned char memory[4096];
-unsigned char *mem_top;
+#define THREAD_SCREEN_REPAINT
 
-#define NUM_THREADS     5
+uchar memory[ 4096 ];
+uchar *mem_top;
 
-void MemInfo() {
-	printf("\nMemInfo:\n");
-	printf( "BaseMem   %08X (%4d) Bytes\n", memory, sizeof(memory) );
-	printf( "TopMem    %08X (%4d) Bytes\n", mem_top, mem_top-memory );
+void Init() {
+
+	mem_top				= memory;
+	
 #ifdef _REGISTRY	
-	printf( "RegMem    %08X (%4d) Bytes\n", regMem, sizeof(t_regMem) );
-#endif	
-#ifdef _KEYBOARD	
-	printf( "KbdMem    %08X (%4d) Bytes\n", kbdMem, sizeof(t_kbdMem) );
+	p_registry			= (t_registry*) mem_top;
+	mem_top				= (unsigned char *) p_registry + sizeof(t_registry);
+	RegistryInit();
 #endif	
 #ifdef _SCREEN	
-	printf( "ScreenMem %08X (%4d) Bytes\n", scrMem, sizeof(t_scrMem) );
+	p_screen            = (t_screen*) mem_top;
+	mem_top				= (unsigned char *) p_screen + sizeof(t_screen);
+	scrInit();
+#endif	
+	
+}
+
+void MemInfo() {
+	printf("\n\rMemInfo:\n\r");
+	printf( "BaseMem   %08X (%4d) Bytes\n\r", memory, sizeof(memory) );
+	printf( "TopMem    %08X (%4d) Bytes\n\r", mem_top, mem_top-memory );
+#ifdef _REGISTRY	
+	printf( "RegMem    %08X (%4d) Bytes\n\r", p_registry, sizeof(t_registry) );
+#endif	
+#ifdef _SCREEN	
+	printf( "ScreenMem %08X (%4d) Bytes\n\r", p_screen, sizeof(t_screen) );
 #endif	
 }
 
 void DumpMem( int x_from, int x_to ) {
 	int x,i;
 	
-	printf( "\nDump ( %08X ):\n", &memory[x_from] );
+	printf( "\n\rDump ( %08X ):\n\r", &memory[x_from] );
 	i=0;
 	for ( x=x_from; x<=x_to; x++ ) {
 		if ( i>31 ) {
-			printf("\n");
+			printf("\n\r");
 			i=0;
 		}
 		if ( i==0 ) {
@@ -43,114 +61,59 @@ void DumpMem( int x_from, int x_to ) {
 		printf( "%02X ", memory[x] );
 		i++;
 	}
-	printf("\n");
+	printf("\n\r");
 }
 
-void Init() {
-
-	mem_top				= memory;
+void DoScreenRepaint() {
+	scrRepaint(0);
 	
-#ifdef _REGISTRY	
-	regMem				= (t_regMem*) mem_top;
-	mem_top				= (unsigned char *) regMem + sizeof(t_regMem);
-	regMem_Init();
-#endif	
-#ifdef _KEYBOARD	
-	kbdMem				= (t_kbdMem*) mem_top;
-	mem_top				= (unsigned char *) kbdMem + sizeof(t_kbdMem);
-	KeyBoard_Init();
-#endif	
-#ifdef _SCREEN	
-	scrMem              = (t_scrMem*) mem_top;
-	mem_top				= (unsigned char *) scrMem + sizeof(t_scrMem);
-	scrInit();
-#endif	
+	printf("\n\r");
 	
+	MemInfo();
+	
+	#ifdef _REGISTRY	
+	DumpMem( (int) ((unsigned char*)p_registry-(unsigned char*)memory), (int) ((unsigned char*)p_registry-(unsigned char*)memory+sizeof(t_registry)-1) );
+	#endif
+	#ifdef _SCREEN	
+	DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
+	#endif
 }
 
-// void sleep( time_t delay ) {
-	// time_t timer0, timer1;
+#ifdef THREAD_SCREEN_REPAINT
+pthread_t 	thScreenRepaint;
+
+void *th_DoScreenRepaint( void *param ) {
+	char *p_memory;
+	p_memory = (char *) param;
 	
-	// time( &timer0 );
-	// do {
-		// time( &timer1 );
-	// } while ( ( timer1-timer0 ) < delay );
-// }
-void sleep( long j ) {
-	long i,l;
-	for (l=0; l<j; l++)
-		for (i=0; i<j; i++)
-			;
+	while ( 1 ) {
+		DoScreenRepaint();
+		sleepMs( 100 );
+	}
+
+	pthread_exit(NULL);
 }
+#endif
+	
+int main( int argc, char *argv[] ) {
 
-int main() {
-
-	pthread_t threads[NUM_THREADS];
-	int rc[NUM_THREADS];
-	long t[NUM_THREADS];
-
-	unsigned char c = ' ';
-	int  i = 0;
+	uchar c = '\0';
 	
 	Init();
 
-	t[0]  = 42;
-	rc[0] = pthread_create( &threads[t[0]], NULL, KeyBoard_Scan, (void *)t[0] );
-	printf( "rc[0] %08X rc[0] %08X\n", t[0], rc[0] );
-	while ( 1 ) {
-		// DumpMem( (int) ((unsigned char*)kbdMem-(unsigned char*)memory), (int) ((unsigned char*)kbdMem-(unsigned char*)memory+sizeof(t_kbdMem)) );
-		sleep(10000);
+#ifdef THREAD_SCREEN_REPAINT
+	if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)memory ) ) {
+		printf("error creating DoScreenRepaint thread.\n");
 	}	
-#ifdef _SCREEN	
-	scrClear();
+#endif
 	
-	for ( i=0; i<SCR_XMAX_SIZE*SCR_YMAX_SIZE; i++ ) {
-		if ( c > 'z' )
-			c = ' ';
+	while (1) {
+		c = getch();
 		scrWrite( c );
-		c++;
+#ifndef THREAD_SCREEN_REPAINT
+		DoScreenRepaint();
+#endif
 	}
-
-	scrMem->x_pos=0;
-	scrMem->y_pos=0;
-	scrRepaint();
-
-	// scrMem->y_pos=0;
-	// for ( scrMem->x_pos=0; scrMem->x_pos < scrMem->x_max; scrMem->x_pos++ ) {
-		// sleep(10000);
-		// scrRepaint();
-	// }
-	// scrMem->x_pos=scrMem->x_max-1;
-	// for ( scrMem->y_pos=0; scrMem->y_pos < scrMem->y_max; scrMem->y_pos++ ) {
-		// sleep(10000);
-		// scrRepaint();
-	// }
-	// scrMem->y_pos=scrMem->y_max-1;
-	// for ( scrMem->x_pos=scrMem->x_max-1; scrMem->x_pos > 0; scrMem->x_pos-- ) {
-		// sleep(10000);
-		// scrRepaint();
-	// }
-	// scrMem->x_pos=0;
-	// for ( scrMem->y_pos=scrMem->y_max-1; scrMem->y_pos > 0; scrMem->y_pos-- ) {
-		// sleep(10000);
-		// scrRepaint();
-	// } 
-#endif	
-
-	MemInfo();
-	
-// #ifdef _REGISTRY	
-	// DumpMem( (int) ((unsigned char*)regMem-(unsigned char*)memory), (int) ((unsigned char*)regMem-(unsigned char*)memory+sizeof(t_regMem)) );
-// #endif	
-#ifdef _KEYBOARD	
-	DumpMem( (int) ((unsigned char*)kbdMem-(unsigned char*)memory), (int) ((unsigned char*)kbdMem-(unsigned char*)memory+sizeof(t_kbdMem)) );
-#endif	
-// #ifdef _SCREEN	
-	// DumpMem( (int) ((unsigned char*)scrMem-(unsigned char*)memory), (int) ((unsigned char*)scrMem-(unsigned char*)memory+sizeof(t_scrMem)) );
-// #endif	
-	
-	pthread_exit( NULL );
 	
 	return 0;
-
 }

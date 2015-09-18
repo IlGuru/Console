@@ -2,12 +2,16 @@
 
 #define _REGISTRY
 
+#include <stdio.h>
+#include <pthread.h>
+#include "./stuff.h"
+
 typedef struct {
 	long		HearthBeat;
-} t_regMem;
+} t_registry;
 
-t_regMem *regMem;
+t_registry *p_registry;
 
-void regMem_Init();
+void RegistryInit();
 
 #endif

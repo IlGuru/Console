@@ -1,46 +1,54 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #ifndef _DISPLAY
 
 #define _DISPLAY
 
-#define DSP_XMAX_SIZE 64
-#define DSP_YMAX_SIZE 16
+#define DSP_BOX
+//#define DSP_DEBUG
+// #define DSP_THREAD
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <curses.h>
+#ifdef DSP_THREAD
+#include <pthread.h>
+#endif
+
+#define DSP_XMAX_SIZE 30
+#define DSP_YMAX_SIZE 20
+
+#ifdef DSP_BOX
+	#define DSP_XBOX_SIZE ( DSP_XMAX_SIZE + 2 )
+	#define DSP_YBOX_SIZE ( DSP_YMAX_SIZE + 2 )
+#endif
+
+#define DSP_POSX_MIN  0
+#define DSP_POSY_MIN  0
+#define DSP_POSX_MAX  ( DSP_XMAX_SIZE - 1 )
+#define DSP_POSY_MAX  ( DSP_YMAX_SIZE - 1 )
+
+#define fContentChanged	1
 
 typedef struct {
-	//	Buffer
-	unsigned char 	Buffer[DSP_XMAX_SIZE*DSP_YMAX_SIZE];
-	//	Registri
+	WINDOW  *	wnd;
 	short int	x_pos;
 	short int	y_pos;
 	short int	x_max;
-	short int	y_max;
-} t_dspMem;
+	short int	y_max;	
+#ifdef DSP_THREAD
+	char		status;
+	pthread_t 	th;
+	int         rc;
+#endif	
+} t_display;
 
-t_dspMem *dspMem;
+t_display *p_display;
 
-//----------------------------------------------------
+#ifndef DSP_THREAD
+void dspRefresh();
+#endif
 
-void dsp_init();
+void dspInit();
 
-//----------------------------------------------------
-
-void dsp_inc_xpos();
-void dsp_inc_ypos();
-
-short int dsp_xmax();
-short int dsp_ymax();
-
-short int dsp_xget();
-void dsp_xset( short int p );
-
-short int dsp_yget();
-void dsp_yset( short int p );
-
-unsigned char dsp_read();
-void dsp_write( unsigned char c );
-
-void dsp_repaint();
+void dspWrite( char dc );
 
 #endif

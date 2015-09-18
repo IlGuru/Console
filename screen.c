@@ -4,17 +4,11 @@
 //----------------------------------------------------
 //	Screen
 
-// void _clrscr() {
-	// const char* CLEAR_SCREE_ANSI = "\e[1;1H\e[2J";
-	// printf( CLEAR_SCREE_ANSI );
-// }
-
 //----------------------------------------------------
 
-void scrClear() {
-	scrMem->x_pos = 0;
-	scrMem->y_pos = 0;
-	// _clrscr();
+void scrCursorHome() {
+	p_screen->x_pos = 0;
+	p_screen->y_pos = 0;
 }
 
 //----------------------------------------------------
@@ -22,7 +16,7 @@ void scrClear() {
 void scrClearMemBuf() {
 	int xg = 0;
 	for (xg = 0 ; xg < SCR_XMAX_SIZE*SCR_YMAX_SIZE ; xg++) {
-		scrMem->Buffer[xg] = '+';
+		p_screen->Buffer[xg] = ' ';
 	}
 }
 
@@ -30,47 +24,72 @@ void scrClearMemBuf() {
 
 void scrInit() {
 
-	dsp_init();
+	dspInit();
 
-	scrMem->x_max		= SCR_XMAX_SIZE;
-	scrMem->y_max		= SCR_YMAX_SIZE;
-	// scrMem->BufSize		= SCR_XMAX_SIZE*SCR_YMAX_SIZE;
+	p_screen->x_max		= SCR_XMAX_SIZE;
+	p_screen->y_max		= SCR_YMAX_SIZE;
+	
 	scrClearMemBuf();
+
+	scrRepaint(0);
+	
 }
 
 //----------------------------------------------------
 
-void scrInc_xpos() {
+void scrIncX() {
 
-	scrMem->x_pos++;
+	p_screen->x_pos++;
 
-	if ( scrMem->x_pos >= SCR_XMAX_SIZE ) {
-		scrMem->x_pos = 0;
-		scrInc_ypos();
+	if ( p_screen->x_pos >= SCR_XMAX_SIZE ) {
+		if ( p_screen->y_pos < SCR_POSY_MAX ) {
+			p_screen->x_pos = SCR_POSX_MIN;
+			scrIncY();
+		} else {
+			p_screen->x_pos = SCR_POSX_MAX;
+		}
 	}		
 
 }
 
-void scrInc_ypos() {
+void scrIncY() {
 
-	scrMem->y_pos++;
+	p_screen->y_pos++;
 
-	if ( scrMem->y_pos >= SCR_YMAX_SIZE ) {
-		scrMem->x_pos = SCR_XMAX_SIZE;
-		scrMem->y_pos = SCR_YMAX_SIZE;
-	}		
+	if ( p_screen->y_pos == SCR_YMAX_SIZE ) {
+		p_screen->y_pos = SCR_POSY_MAX; 
+		return;		
+	}
+}
 
+void scrDecY() {
+	p_screen->y_pos--;
+	if ( p_screen->y_pos < SCR_POSY_MIN ) {
+		p_screen->y_pos = SCR_POSY_MIN;
+	}
+}
+
+void scrDecX() {
+	p_screen->x_pos--;
+	if ( p_screen->x_pos < SCR_POSX_MIN ) {
+		if ( p_screen->y_pos > SCR_POSY_MIN ) {
+			p_screen->x_pos = SCR_POSX_MAX;
+			scrDecY();
+		} else {
+			p_screen->x_pos = SCR_POSX_MIN;
+		}
+	}
 }
 
 void scrWrite( unsigned char c ) {
 	
-	if ( scrMem->y_pos < SCR_YMAX_SIZE ) {
+	if ( p_screen->y_pos < SCR_YMAX_SIZE ) {
 		// if ( c == '\0' ) c = ' ';
-		// if ( c == '\n' ) scrMem->y_pos++;
-		// if ( c == '\r' ) scrMem->x_pos = 0;
+		// if ( c == '\n' ) p_screen->y_pos++;
+		// if ( c == '\r' ) p_screen->x_pos = 0;
 
-		scrMem->Buffer[ scrMem->y_pos*SCR_XMAX_SIZE + scrMem->x_pos ] = c;
-		scrInc_xpos();
+		p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
+		scrIncX();
 		// putchar( c );		
 	} else {
 		// printf( "%02X ", ((int) c) );
@@ -80,43 +99,29 @@ void scrWrite( unsigned char c ) {
 }
 
 unsigned char scrRead() {
-	return ( scrMem->Buffer[ scrMem->y_pos*SCR_XMAX_SIZE + scrMem->x_pos ] );
+	return ( p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] );
 }
 
 //----------------------------------------------------
 
 void scrRepaint(int amount) {
-	// int xg = 0;
-	
-	// scrClear();
-		
-	// for (xg = 0 ; xg < amount ; xg++) {
-		// scrWrite(scrMem->Buffer[xg]);		
-	// }
+
 	short int xs, xe, ys, ye, x, y;
 	
-	xs = ( scrMem->x_pos < dsp_xmax() ? 0 : scrMem->x_pos - dsp_xmax()+1 );
-	xe = xs + dsp_xmax();
-	ys = ( scrMem->y_pos < dsp_ymax() ? 0 : scrMem->y_pos - dsp_ymax()+1 );
-	ye = ys + dsp_ymax();
+	xs = ( p_screen->x_pos < dspYmax() ? 0 : p_screen->x_pos - dspXmax()+1 );
+	xe = xs + dspXmax();
+	ys = ( p_screen->y_pos < dspYmax() ? 0 : p_screen->y_pos - dspYmax()+1 );
+	ye = ys + dspYmax();
 	
-	dsp_xset( 0 );
-	dsp_yset( 0 );
+	dspCursorHome();
 	for ( y = ys; y < ye; y++ ) {
 		for ( x = xs; x < xe; x++ ) {
-			// printf("%d->%d ", y*SCR_XMAX_SIZE + x, dsp_yget()*dsp_xmax()+dsp_xget() );
 			if ( x-xs < SCR_XMAX_SIZE && y-ys < SCR_YMAX_SIZE ) {
-				dsp_write( scrMem->Buffer[ y*SCR_XMAX_SIZE + x ] );
+				dspWrite( p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] );
 			} else {
-				dsp_write( '~' );
+				dspWrite( '~' );
 			}
 		}
 	}
-	
-	dsp_repaint();
-
-	// printf("\nx_pos:%d y_pos:%d x_max:%d y_max:%d\n", scrMem->x_pos, scrMem->y_pos, scrMem->x_max, scrMem->y_max);
-	// printf("\ndsp_xget:%d dsp_yget:%d dsp_xmax:%d dsp_ymax:%d\n", dsp_xget(), dsp_yget(), dsp_xmax(), dsp_ymax());
-	// printf("\nxs:%d xe:%d ys:%d ye:%d\n", xs, xe, ys, ye);
 	
 }

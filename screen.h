@@ -5,8 +5,13 @@
 
 #define _SCREEN
 
-#define SCR_XMAX_SIZE 64
-#define SCR_YMAX_SIZE 16
+#define SCR_XMAX_SIZE 20
+#define SCR_YMAX_SIZE 4
+#define SCR_POSX_MIN  0
+#define SCR_POSY_MIN  0
+#define SCR_POSX_MAX  ( SCR_XMAX_SIZE - 1 )
+#define SCR_POSY_MAX  ( SCR_YMAX_SIZE - 1 )
+
 
 typedef struct {
 	//	Buffer
@@ -16,10 +21,9 @@ typedef struct {
 	short int	y_pos;
 	short int	x_max;
 	short int	y_max;
-	// short int	BufSize;
-} t_scrMem;
+} t_screen;
 
-t_scrMem *scrMem;
+t_screen *p_screen;
 
 //----------------------------------------------------
 
@@ -27,9 +31,9 @@ void scrInit();
 
 //----------------------------------------------------
 
-void scrInc_xpos();
+void scrIncX();
 
-void scrInc_ypos();
+void scrIncY();
 
 void scrWrite( unsigned char c );
 
