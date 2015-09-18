@@ -1,59 +1,69 @@
 #include "./keyboard.h"
 
-void KeyBoard_ClearBuf() {
-	for (kbdMem->BufPos = sizeof( kbdMem->Buffer ); kbdMem->BufPos >= 0; kbdMem->BufPos--) {
-		kbdMem->Buffer[ kbdMem->BufPos ] = 255;
-	}
-}
-void KeyBoard_Init() {
-	KeyBoard_ClearBuf();
+//----------------------------------------------------
+//	Keyboard
 
-	kbdMem->BufPos = 0;
-	kbdMem->Status = 0;
-}
-
-void KeyBoard_BufPosInc() {
-	kbdMem->BufPos++;
-	if ( kbdMem->BufPos > sizeof( kbdMem->Buffer ) ) kbdMem->BufPos = sizeof( kbdMem->Buffer );
-}
-
-void KeyBoard_BufPosDec() {
-	kbdMem->BufPos--;
-	if ( kbdMem->BufPos < 0 ) kbdMem->BufPos = 0;
-}
-
-void KeyBoard_CheckFlag() {
-	if ( kbdMem->BufPos == 0 ) {
-		kbdMem->Status = kbdMem->Status BufferEmpty_fSet;
+void kbCheckStatus() {
+	if ( p_keyboard->BufPos <= KB_BUFFER_MIN_POS ) {
+		SETBIT( p_keyboard->status , KB_BUFFER_EMPTY );
 	} else {
-		kbdMem->Status = kbdMem->Status BufferEmpty_fClr;
+		CLRBIT( p_keyboard->status , KB_BUFFER_EMPTY );
 	}
-	if ( kbdMem->BufPos == sizeof( kbdMem->Buffer ) ) {
-		kbdMem->Status = kbdMem->Status BufferOverflow_fSet;
+	if ( p_keyboard->BufPos >= KB_BUFFER_SIZE ) {
+		SETBIT( p_keyboard->status , KB_BUFFER_FULL );
 	} else {
-		kbdMem->Status = kbdMem->Status BufferOverflow_fClr;
+		CLRBIT( p_keyboard->status , KB_BUFFER_FULL );
 	}
 }
 
-void *KeyBoard_Scan( void *threadid ) {
+void kbIncBufPos() {
+	p_keyboard->BufPos++;
 	
-	unsigned char d;
-	
-	long tid;
-	tid = (long)threadid;
-	printf("Hello World! It's me, thread #%ld!\n", tid);
-	printf("%08X\n", kbdMem);
+	if ( p_keyboard->BufPos >= KB_BUFFER_SIZE ) 
+		p_keyboard->BufPos = KB_BUFFER_SIZE;
+		
+	kbCheckStatus();
+}
 
-    while ( 1 ) {
-		// printf("%02X\n", kbdMem->Status);
-		// if ( !( kbdMem->Status BufferOverflow_fChk ) ) { 
-			d = getch();
-			kbdMem->Buffer[ kbdMem->BufPos ] = d;
-			kbdMem->BufPos++;
-		// }
-		KeyBoard_CheckFlag();
+void kbDecBufPos() {
+	p_keyboard->BufPos--;
+
+	if ( p_keyboard->BufPos <= KB_BUFFER_MIN_POS ) 
+		p_keyboard->BufPos = KB_BUFFER_MIN_POS;
+
+	kbCheckStatus();
+}
+
+void kbClear() {
+	for ( p_keyboard->BufPos = KB_BUFFER_MIN_POS; p_keyboard->BufPos < KB_BUFFER_SIZE; p_keyboard->BufPos++ )
+		p_keyboard->Buffer[p_keyboard->BufPos] = '\0';
+	
+	p_keyboard->BufPos = KB_BUFFER_MIN_POS;
+	
+	kbCheckStatus();
+}
+
+void kbPutCh() {
+	if ( !( TSTBIT( p_keyboard->status , KB_BUFFER_FULL ) ) ) {
+		p_keyboard->Buffer[p_keyboard->BufPos] = getch();
 	}
+	kbIncBufPos();
+}
+
+uchar kbGettCh() {
+	uchar c = '\0';
 	
-	pthread_exit( NULL );
-	
+	if ( !( TSTBIT( p_keyboard->status , KB_BUFFER_EMPTY ) ) ) {
+		kbDecBufPos();
+		c = p_keyboard->Buffer[p_keyboard->BufPos];
+		p_keyboard->Buffer[p_keyboard->BufPos] = '\0';
+	}
+	return c;
+}
+
+void kbInit() {
+	kbClear();
+
+	cbreak(); // curses call to set no waiting for Enter key
+	noecho(); // curses call to set no echoing
 }

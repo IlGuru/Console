@@ -6,9 +6,119 @@
 
 //----------------------------------------------------
 
+void scrCheckPosFlag() {
+	if ( p_screen->x_pos <= SCR_POSX_MIN ) {
+		SETBIT(p_screen->status,f_srcFirstColumn);
+	} else {
+		CLRBIT(p_screen->status,f_srcFirstColumn);
+	}
+	if ( p_screen->x_pos >= SCR_POSX_MAX ) {
+		SETBIT(p_screen->status,f_srcLastColumn);
+	} else {
+		CLRBIT(p_screen->status,f_srcLastColumn);
+	}
+	if ( p_screen->y_pos <= SCR_POSY_MIN ) {
+		SETBIT(p_screen->status,f_srcFirstRow);
+	} else {
+		CLRBIT(p_screen->status,f_srcFirstRow);
+	}
+	if ( p_screen->y_pos >= SCR_POSY_MAX ) {
+		SETBIT(p_screen->status,f_srcLastRow);
+	} else {
+		CLRBIT(p_screen->status,f_srcLastRow);
+	}
+}
+
+//----------------------------------------------------
+
+void scrGoHomeX() {
+	p_screen->x_pos = SCR_POSX_MIN;
+	scrCheckPosFlag();
+}
+
+void scrGoHomeY() {
+	p_screen->y_pos = SCR_POSY_MIN;
+	scrCheckPosFlag();
+}
+
+void scrGoLastX() {
+	p_screen->x_pos = SCR_POSX_MAX;
+	scrCheckPosFlag();
+}
+
+void scrGoLastY() {
+	p_screen->y_pos = SCR_POSY_MAX;
+	scrCheckPosFlag();
+}
+
+void scrGoEndX() {
+	p_screen->x_pos = SCR_XMAX_SIZE;
+	scrCheckPosFlag();
+}
+
+void scrGoEndY() {
+	p_screen->y_pos = SCR_YMAX_SIZE;
+	scrCheckPosFlag();
+}
+
 void scrCursorHome() {
-	p_screen->x_pos = 0;
-	p_screen->y_pos = 0;
+	p_screen->x_pos = SCR_POSX_MIN;
+	p_screen->y_pos = SCR_POSY_MIN;
+	scrCheckPosFlag();
+}
+
+void scrIncY() {
+
+	p_screen->y_pos++;
+
+	if ( p_screen->y_pos > SCR_POSY_MAX ) {
+		scrGoLastY(); 
+	}
+
+	scrCheckPosFlag();
+
+}
+
+void scrIncX() {
+
+	p_screen->x_pos++;
+
+	if ( p_screen->x_pos > SCR_POSX_MAX ) {
+		if ( p_screen->y_pos < SCR_POSY_MAX ) {
+			scrGoHomeX();
+			scrIncY();
+		} else {
+			scrGoEndX();
+		}
+	}		
+
+	scrCheckPosFlag();
+
+}
+
+void scrDecY() {
+	p_screen->y_pos--;
+	if ( p_screen->y_pos < SCR_POSY_MIN ) {
+		scrGoHomeY();
+	}
+
+	scrCheckPosFlag();
+
+}
+
+void scrDecX() {
+	p_screen->x_pos--;
+	if ( p_screen->x_pos < SCR_POSX_MIN ) {
+		if ( p_screen->y_pos > SCR_POSY_MIN ) {
+			scrGoLastX();
+			scrDecY();
+		} else {
+			scrGoHomeX();
+		}
+	}
+
+	scrCheckPosFlag();
+
 }
 
 //----------------------------------------------------
@@ -28,85 +138,43 @@ void scrInit() {
 
 	p_screen->x_max		= SCR_XMAX_SIZE;
 	p_screen->y_max		= SCR_YMAX_SIZE;
+	CLRBIT(p_screen->status,f_srcContentChanged);
 	
 	scrClearMemBuf();
 
-	scrRepaint(0);
+	scrRepaint();
 	
 }
 
 //----------------------------------------------------
 
-void scrIncX() {
-
-	p_screen->x_pos++;
-
-	if ( p_screen->x_pos >= SCR_XMAX_SIZE ) {
-		if ( p_screen->y_pos < SCR_POSY_MAX ) {
-			p_screen->x_pos = SCR_POSX_MIN;
-			scrIncY();
-		} else {
-			p_screen->x_pos = SCR_POSX_MAX;
-		}
-	}		
-
-}
-
-void scrIncY() {
-
-	p_screen->y_pos++;
-
-	if ( p_screen->y_pos == SCR_YMAX_SIZE ) {
-		p_screen->y_pos = SCR_POSY_MAX; 
-		return;		
-	}
-}
-
-void scrDecY() {
-	p_screen->y_pos--;
-	if ( p_screen->y_pos < SCR_POSY_MIN ) {
-		p_screen->y_pos = SCR_POSY_MIN;
-	}
-}
-
-void scrDecX() {
-	p_screen->x_pos--;
-	if ( p_screen->x_pos < SCR_POSX_MIN ) {
-		if ( p_screen->y_pos > SCR_POSY_MIN ) {
-			p_screen->x_pos = SCR_POSX_MAX;
-			scrDecY();
-		} else {
-			p_screen->x_pos = SCR_POSX_MIN;
-		}
-	}
-}
-
 void scrBackSpace() {
 	scrDecX();
 	p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = ' ';
 }
+
 void scrReturn() {
-	short int x,y;
-	for ( y=1; y<SCR_YMAX_SIZE; y++ ) {
+	curscoord x,y;
+	if ( p_screen->y_pos < SCR_POSY_MAX) {
+		scrIncY();
+	} else {
+		for ( y=0; y<SCR_POSY_MAX; y++ ) {
+			for ( x=0; x<SCR_XMAX_SIZE; x++ ) {
+				p_screen->Buffer[ (y)*SCR_XMAX_SIZE + x ] = p_screen->Buffer[ (y+1)*SCR_XMAX_SIZE + x ];
+			}
+		}	
 		for ( x=0; x<SCR_XMAX_SIZE; x++ ) {
-			p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] = p_screen->Buffer[ (y - 1)*SCR_XMAX_SIZE + x ];
+			p_screen->Buffer[ (y)*SCR_XMAX_SIZE + x ] = ' ';
 		}
-	}	
+	}
+	scrGoHomeX();
 }
+
+//------------------------------------------------------------------------------------------------------
+
 void scrWrite( unsigned char c ) {
 	
-	// if ( p_screen->y_pos < SCR_YMAX_SIZE ) {
-		// if ( c == '\0' ) c = ' ';
-		// if ( c == '\n' ) p_screen->y_pos++;
-		// if ( c == '\r' ) p_screen->x_pos = 0;
-
-		// p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
-		// scrIncX();
-		// putchar( c );		
-	// } else {
-		// printf( "%02X ", ((int) c) );
-		// return;
-	// }		
+	unsigned char d,e;
 	
 	switch ( c ) {
 		case 8:
@@ -116,15 +184,49 @@ void scrWrite( unsigned char c ) {
 			scrBackSpace();
 			break;
 		case 10:
-			scrIncY();
+			scrReturn();
+			scrRepaint();
 			break;
 		case 13:
-			p_screen->x_pos;
+			break;
+		case 27:
+			// d = getch();
+			// switch ( d ) {
+			kbPutCh();
+			switch ( kbGettCh() ) {
+				case 91:
+					// e = getch();
+					// switch ( e ) {
+					kbPutCh();
+					switch ( kbGettCh() ) {
+						case 65:		//	KEY_UP
+							scrDecY();
+							break;
+						case 66:		//	KEY_DOWN
+							scrIncY();
+							break;
+						case 67:		//	KEY_RIGHT
+							scrIncX();
+							break;
+						case 68:		//	KEY_LEFT
+							scrDecX();
+							break;
+						default:
+							break;
+					}
+					break;
+				default:
+					break;
+			}
 			break;
 		default:
-			p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
-			scrIncX();
+			if ( p_screen->x_pos < SCR_XMAX_SIZE ) {
+				p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
+				scrIncX();
+			}
 	}
+
+	SETBIT(p_screen->status,f_srcContentChanged);
 }
 
 unsigned char scrRead() {
@@ -133,24 +235,33 @@ unsigned char scrRead() {
 
 //----------------------------------------------------
 
-void scrRepaint(int amount) {
+void scrRepaint() {
 
-	short int xs, xe, ys, ye, x, y;
+	curscoord xs, xe, ys, ye, x, y;
 	
-	xs = ( p_screen->x_pos < dspYmax() ? 0 : p_screen->x_pos - dspXmax()+1 );
-	xe = xs + dspXmax();
-	ys = ( p_screen->y_pos < dspYmax() ? 0 : p_screen->y_pos - dspYmax()+1 );
-	ye = ys + dspYmax();
+	if ( TSTBIT(p_screen->status,f_srcContentChanged) ) {
 	
-	dspCursorHome();
-	for ( y = ys; y < ye; y++ ) {
-		for ( x = xs; x < xe; x++ ) {
-			if ( x-xs < SCR_XMAX_SIZE && y-ys < SCR_YMAX_SIZE ) {
-				dspWrite( p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] );
-			} else {
-				dspWrite( '~' );
+		p_screen->x  = ( p_screen->x_pos<SCR_POSX_MAX ? p_screen->x_pos : SCR_POSX_MAX );
+		p_screen->y  = ( p_screen->y_pos<SCR_POSY_MAX ? p_screen->y_pos : SCR_POSY_MAX );
+		
+		p_screen->xs = ( p_screen->x < dspXmax() ? 0 : p_screen->x - dspXmax() + 1 );
+		p_screen->xe = p_screen->xs + dspXmax() - 1;
+		p_screen->ys = ( p_screen->y < dspYmax() ? 0 : p_screen->y - dspYmax() + 1 );
+		p_screen->ye = p_screen->ys + dspYmax() - 1;
+
+		dspCursorHome();
+		for ( y = p_screen->ys; y <= p_screen->ye; y++ ) {
+			for ( x = p_screen->xs; x <= p_screen->xe; x++ ) {
+				if ( x-p_screen->xs < SCR_XMAX_SIZE && y-p_screen->ys < SCR_YMAX_SIZE ) {
+					dspWrite( p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] );
+				} else {
+					dspWrite( '~' );
+				}
 			}
 		}
+		
+		CLRBIT(p_screen->status,f_srcContentChanged);
+		
 	}
 	
 }

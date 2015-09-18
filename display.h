@@ -13,9 +13,12 @@
 #include <pthread.h>
 #endif
 #include "./bit_oper.h"
+#include "./common.h"
 
-#define DSP_XMAX_SIZE 20
-#define DSP_YMAX_SIZE 4
+
+#define DSP_XMAX_SIZE 10
+#define DSP_YMAX_SIZE 2
+
 
 #ifdef DSP_BOX
 	#define DSP_XBOX_SIZE ( DSP_XMAX_SIZE + 2 )
@@ -30,11 +33,11 @@
 #define fContentChanged	0
 
 typedef struct {
+	curscoord	x_pos;
+	curscoord	y_pos;
+	curscoord	x_max;
+	curscoord	y_max;	
 	WINDOW  *	wnd;
-	short int	x_pos;
-	short int	y_pos;
-	short int	x_max;
-	short int	y_max;	
 #ifdef DSP_THREAD
 	char		status;
 	pthread_t 	th;

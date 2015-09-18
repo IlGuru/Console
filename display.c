@@ -1,26 +1,26 @@
-
 #include "./display.h"
-short int dspXmax() {
+
+curscoord dspXmax() {
 	return ( p_display->x_max );
 }
 
-short int dspYmax() {
+curscoord dspYmax() {
 	return ( p_display->y_max );
 }
 
-short int dspXget() {
+curscoord dspXget() {
 	return ( p_display->x_pos );
 }
 
-void dspXset( short int p ) {
+void dspXset( curscoord p ) {
 	p_display->x_pos = p;
 }
 
-short int dspYget() {
+curscoord dspYget() {
 	return ( p_display->y_pos );
 }
 
-void dspYset( short int p ) {
+void dspYset( curscoord p ) {
 	p_display->y_pos = p;
 }
 
@@ -80,7 +80,7 @@ void *_dspRefresh( void *param ) {
 		// if ( _display->status && 0b00000001 != 0 ) {
 		if ( TSTBIT(_display->status,fContentChanged) ) {
 			// _display->status &= 0b11111110;
-			CRLBIT(_display->status,fContentChanged);
+			CLRBIT(_display->status,fContentChanged);
 			refresh(); // curses call to update screen
 		}
 	}
@@ -102,13 +102,14 @@ void dspCursorHome() {
 
 void dspClear() {
 	wclear( p_display->wnd );
-#ifdef DSP_BOX
+	#ifdef DSP_BOX
 	box( p_display->wnd, ACS_VLINE, ACS_HLINE );
-#endif
+	#endif
 	dspCursorHome();
 }
 
 void dspInit() {
+
 	p_display	= malloc( sizeof( t_display ) );
 	
 	// p_display->x_pos = 0;
@@ -118,14 +119,14 @@ void dspInit() {
 
 	p_display->wnd 	= initscr();
 	
-#ifdef DSP_BOX
+	#ifdef DSP_BOX
 	wresize( p_display->wnd, DSP_YBOX_SIZE, DSP_XBOX_SIZE );
 	// wclear( p_display->wnd );
 	// box( p_display->wnd, ACS_VLINE, ACS_HLINE );
-#else
+	#else
 	wresize( p_display->wnd, DSP_YMAX_SIZE, DSP_XMAX_SIZE );
 	// wclear( p_display->wnd );
-#endif
+	#endif
 
 	dspClear();
 	
@@ -142,7 +143,7 @@ void dspInit() {
 	refresh(); // curses call to update screen
 #else
 	// p_display->status &= 0b11111110;
-	CRLBIT(p_display->status,fContentChanged);
+	CLRBIT(p_display->status,fContentChanged);
 	p_display->rc = pthread_create(&p_display->th, NULL, _dspRefresh, (void *)p_display);
 	if ( p_display->rc ) {
 		printf("error creating thread.");

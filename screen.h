@@ -1,26 +1,43 @@
-#include <stdio.h>
-#include "./display.h"
-
 #ifndef _SCREEN
 
 #define _SCREEN
 
-#define SCR_XMAX_SIZE 20
-#define SCR_YMAX_SIZE 4
+#include <stdio.h>
+#include "./display.h"
+#include "./common.h"
+
+#define SCR_XMAX_SIZE ( 16 )
+#define SCR_YMAX_SIZE ( 2 )
 #define SCR_POSX_MIN  0
 #define SCR_POSY_MIN  0
 #define SCR_POSX_MAX  ( SCR_XMAX_SIZE - 1 )
 #define SCR_POSY_MAX  ( SCR_YMAX_SIZE - 1 )
 
+#define f_srcFirstColumn	0
+#define f_srcFirstRow		1
+#define f_srcLastColumn		2
+#define f_srcLastRow		3
+#define f_srcContentChanged	7
 
 typedef struct {
 	//	Buffer
 	unsigned char 	Buffer[SCR_XMAX_SIZE*SCR_YMAX_SIZE];
+
 	//	Registri
-	short int	x_pos;
-	short int	y_pos;
-	short int	x_max;
-	short int	y_max;
+	char		status;
+
+	curscoord	x_pos;
+	curscoord	y_pos;
+	curscoord	x_max;
+	curscoord	y_max;
+
+	curscoord	x;
+	curscoord	y;
+	curscoord	xs;
+	curscoord	xe;
+	curscoord	ys;
+	curscoord	ye;
+
 } t_screen;
 
 t_screen *p_screen;
