@@ -11,7 +11,7 @@
 
 #define uchar unsigned char
 
-#define THREAD_SCREEN_REPAINT
+// #define THREAD_SCREEN_REPAINT
 
 uchar memory[ 4096 ];
 uchar *mem_top;
@@ -67,15 +67,15 @@ void DumpMem( int x_from, int x_to ) {
 void DoScreenRepaint() {
 	scrRepaint(0);
 	
-	printf("\n\r");
+	// printf("\n\r");
 	
-	MemInfo();
+	// MemInfo();
 	
 	#ifdef _REGISTRY	
-	DumpMem( (int) ((unsigned char*)p_registry-(unsigned char*)memory), (int) ((unsigned char*)p_registry-(unsigned char*)memory+sizeof(t_registry)-1) );
+	// DumpMem( (int) ((unsigned char*)p_registry-(unsigned char*)memory), (int) ((unsigned char*)p_registry-(unsigned char*)memory+sizeof(t_registry)-1) );
 	#endif
 	#ifdef _SCREEN	
-	DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
+	// DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
 	#endif
 }
 

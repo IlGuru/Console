@@ -12,9 +12,10 @@
 #ifdef DSP_THREAD
 #include <pthread.h>
 #endif
+#include "./bit_oper.h"
 
-#define DSP_XMAX_SIZE 30
-#define DSP_YMAX_SIZE 20
+#define DSP_XMAX_SIZE 20
+#define DSP_YMAX_SIZE 4
 
 #ifdef DSP_BOX
 	#define DSP_XBOX_SIZE ( DSP_XMAX_SIZE + 2 )
@@ -26,7 +27,7 @@
 #define DSP_POSX_MAX  ( DSP_XMAX_SIZE - 1 )
 #define DSP_POSY_MAX  ( DSP_YMAX_SIZE - 1 )
 
-#define fContentChanged	1
+#define fContentChanged	0
 
 typedef struct {
 	WINDOW  *	wnd;

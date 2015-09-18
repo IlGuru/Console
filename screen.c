@@ -81,21 +81,50 @@ void scrDecX() {
 	}
 }
 
+void scrBackSpace() {
+	scrDecX();
+	p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = ' ';
+}
+void scrReturn() {
+	short int x,y;
+	for ( y=1; y<SCR_YMAX_SIZE; y++ ) {
+		for ( x=0; x<SCR_XMAX_SIZE; x++ ) {
+			p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] = p_screen->Buffer[ (y - 1)*SCR_XMAX_SIZE + x ];
+		}
+	}	
+}
 void scrWrite( unsigned char c ) {
 	
-	if ( p_screen->y_pos < SCR_YMAX_SIZE ) {
+	// if ( p_screen->y_pos < SCR_YMAX_SIZE ) {
 		// if ( c == '\0' ) c = ' ';
 		// if ( c == '\n' ) p_screen->y_pos++;
 		// if ( c == '\r' ) p_screen->x_pos = 0;
 
-		p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
-		scrIncX();
+		// p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
+		// scrIncX();
 		// putchar( c );		
-	} else {
+	// } else {
 		// printf( "%02X ", ((int) c) );
-		return;
-	}		
-
+		// return;
+	// }		
+	
+	switch ( c ) {
+		case 8:
+			scrBackSpace();
+			break;
+		case 127:
+			scrBackSpace();
+			break;
+		case 10:
+			scrIncY();
+			break;
+		case 13:
+			p_screen->x_pos;
+			break;
+		default:
+			p_screen->Buffer[ p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos ] = c;
+			scrIncX();
+	}
 }
 
 unsigned char scrRead() {

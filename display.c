@@ -77,8 +77,10 @@ void *_dspRefresh( void *param ) {
 	_display = (t_display *) param;
 	
 	while ( 1 ) {
-		if ( _display->status && 0b00000001 != 0 ) {
-			_display->status &= 0b11111110;
+		// if ( _display->status && 0b00000001 != 0 ) {
+		if ( TSTBIT(_display->status,fContentChanged) ) {
+			// _display->status &= 0b11111110;
+			CRLBIT(_display->status,fContentChanged);
 			refresh(); // curses call to update screen
 		}
 	}
@@ -139,7 +141,8 @@ void dspInit() {
 #ifndef DSP_THREAD
 	refresh(); // curses call to update screen
 #else
-	p_display->status &= 0b11111110;
+	// p_display->status &= 0b11111110;
+	CRLBIT(p_display->status,fContentChanged);
 	p_display->rc = pthread_create(&p_display->th, NULL, _dspRefresh, (void *)p_display);
 	if ( p_display->rc ) {
 		printf("error creating thread.");
@@ -172,7 +175,8 @@ void dspWrite( char dc ) {
 #ifndef DSP_THREAD
 	refresh(); // curses call to update screen+
 #else
-	p_display->status |= 0b00000001;
+	// p_display->status |= 0b00000001;
+	SETBIT(p_display->status,fContentChanged);
 #endif
 }
 
