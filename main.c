@@ -11,14 +11,15 @@ unsigned char memory[4096];
 #define scr_ymax 10
 
 unsigned char *screenMem;
-
-unsigned int scr_x = 0;
-unsigned int scr_y = 0;
+unsigned char *screenMem_Buf;
+unsigned char *screenMem_Reg;
+unsigned int  *screenMem_Reg_scr_x;
+unsigned int  *screenMem_Reg_scr_y;
 
 void screenBuf_clear() {
 	int xg = 0;
 	for (xg = 0 ; xg < scr_xmax*scr_ymax ; xg++) {
-		screenMem[xg] = '\0';
+		screenMem_Buf[xg] = '\0';
 	}
 }
 
@@ -31,29 +32,28 @@ void clrscr() {
 
 //----------------------------------------------------
 void scr_clear() {
-	scr_x = 0;
-	scr_y = 0;
-
+	screenMem_Reg_scr_x = 0;
+	screenMem_Reg_scr_y = 0;
 	clrscr();
 }
 
 void scr_write( char c ) {
 
-	if ( scr_x >= scr_xmax ) {
-		scr_x = 0;
-		scr_y++;
+	if ( *screenMem_Reg_scr_x >= scr_xmax ) {
+		screenMem_Reg_scr_x = 0;
+		screenMem_Reg_scr_y++;
 		putchar('\n');
 		putchar('\r');
 	}		
-	if ( scr_y >= scr_ymax ) {
+	if ( *screenMem_Reg_scr_y >= scr_ymax ) {
 		return;
 	}		
 
 	if ( c == '\0' ) c = ' ';
-	if ( c == '\n' ) scr_y++;
-	if ( c == '\r' ) scr_x = 0;
+	if ( c == '\n' ) screenMem_Reg_scr_y++;
+	if ( c == '\r' ) screenMem_Reg_scr_x = 0;
 
-	scr_x++;
+	screenMem_Reg_scr_x++;
 	putchar( c );
 }
 
@@ -64,26 +64,32 @@ static void doFrame(int amount) {
 	scr_clear();
 		
 	for (xg = 0 ; xg < amount ; xg++) {
-		scr_write(screenMem[xg]);
+		scr_write(screenMem_Buf[xg]);
 	}
 
 }
 
 int main() {
 
+
 	screenMem 			= memory;
+	screenMem_Buf		= screenMem;
+	screenMem_Reg		= screenMem+(scr_xmax*scr_ymax);
+	screenMem_Reg_scr_x = (int*) screenMem_Reg;
+	screenMem_Reg_scr_x = (int*) screenMem_Reg + UINT_SIZE;
 	
 	screenBuf_clear();
 	
-	screenMem[0] = 'C';
-	screenMem[1] = 'i';
-	screenMem[2] = 'a';
-	screenMem[3] = 'o';
-	screenMem[4] = '.';
+	screenMem_Buf[0] = 'C';
+	screenMem_Buf[1] = 'i';
+	screenMem_Buf[2] = 'a';
+	screenMem_Buf[3] = 'o';
+	screenMem_Buf[4] = '.';
 	
-	doFrame(scr_xmax*(scr_ymax+5));
-	printf("\n%d",scr_x);
-	printf("\n%d",scr_y);
+	scr_clear();
+//	doFrame(scr_xmax*(scr_ymax+1));
+	printf("\n%d",screenMem_Reg_scr_x);
+	printf("\n%d",screenMem_Reg_scr_y);
 	
 	return 0;
 
