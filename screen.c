@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "./screen.h"
 
 //----------------------------------------------------
@@ -97,24 +96,26 @@ void scrIncX() {
 }
 
 void scrDecY() {
-	p_screen->y_pos--;
-	if ( p_screen->y_pos < SCR_POSY_MIN ) {
+	if ( p_screen->y_pos == SCR_POSY_MIN ) {
 		scrGoHomeY();
+	} else {
+		p_screen->y_pos--;
 	}
-
+	
 	scrCheckPosFlag();
 
 }
 
 void scrDecX() {
-	p_screen->x_pos--;
-	if ( p_screen->x_pos < SCR_POSX_MIN ) {
+	if ( p_screen->x_pos == SCR_POSX_MIN ) {
 		if ( p_screen->y_pos > SCR_POSY_MIN ) {
 			scrGoLastX();
 			scrDecY();
 		} else {
 			scrGoHomeX();
 		}
+	} else {
+		p_screen->x_pos--;
 	}
 
 	scrCheckPosFlag();
@@ -132,17 +133,53 @@ void scrClearMemBuf() {
 
 //----------------------------------------------------
 
-void scrInit() {
+#ifdef THREAD_SCREEN_REPAINT
+void *th_DoScreenRepaint( void *param ) {
+	FNINPUT fCallBack;
+	fCallBack = (FNINPUT)(param);
+	
+	while ( 1 ) {
+		if ( fCallBack != NULL ) {
+			fCallBack();
+		} else {
+			scrRepaint();
+		}			
+		#if SCR_MS_REFRESH != 0
+		sleepMs( SCR_MS_REFRESH );
+		#endif
+	}
 
+	pthread_exit( NULL );
+}
+
+void scrCreateThread( FNINPUT fCallBack ) {
+	if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, fCallBack ) ) {
+		printf("error creating th_DoScreenRepaint thread.\n");
+	}	
+}
+
+#endif
+
+void scrInit( FNINPUT fScreenRepaint ) {
+	
 	dspInit();
 
 	p_screen->x_max		= SCR_XMAX_SIZE;
 	p_screen->y_max		= SCR_YMAX_SIZE;
-	CLRBIT(p_screen->status,f_srcContentChanged);
+	
+	SETBIT(p_screen->status,f_srcContentChanged);
 	
 	scrClearMemBuf();
 
-	scrRepaint();
+#ifdef THREAD_SCREEN_REPAINT
+	scrCreateThread( fScreenRepaint );
+#else
+	if ( fScreenRepaint != NULL ) {
+		fScreenRepaint();
+	} else {
+		scrRepaint();
+	}
+#endif
 	
 }
 
@@ -247,31 +284,41 @@ unsigned char scrRead() {
 
 void scrRepaint() {
 
-	curscoord xs, xe, ys, ye, x, y;
+	curscoord x, y, xs, xe, ys, ye;
+	
+	if ( TSTBIT(p_screen->status,f_srcRepainting) )
+		return;
+		
+	SETBIT(p_screen->status,f_srcRepainting);
 	
 	if ( TSTBIT(p_screen->status,f_srcContentChanged) ) {
 	
-		p_screen->x  = ( p_screen->x_pos<SCR_POSX_MAX ? p_screen->x_pos : SCR_POSX_MAX );
-		p_screen->y  = ( p_screen->y_pos<SCR_POSY_MAX ? p_screen->y_pos : SCR_POSY_MAX );
+		x  = ( p_screen->x_pos<SCR_POSX_MAX ? p_screen->x_pos : SCR_POSX_MAX );
+		y  = ( p_screen->y_pos<SCR_POSY_MAX ? p_screen->y_pos : SCR_POSY_MAX );
 		
-		p_screen->xs = ( p_screen->x < dspXmax() ? 0 : p_screen->x - dspXmax() + 1 );
-		p_screen->xe = p_screen->xs + dspXmax() - 1;
-		p_screen->ys = ( p_screen->y < dspYmax() ? 0 : p_screen->y - dspYmax() + 1 );
-		p_screen->ye = p_screen->ys + dspYmax() - 1;
+		xs = ( x < dspXmax( p_display ) ? 0 : x - dspXmax( p_display ) + 1 );
+		xe = xs + dspXmax( p_display ) - 1;
+		ys = ( y < dspYmax( p_display ) ? 0 : y - dspYmax( p_display ) + 1 );
+		ye = ys + dspYmax( p_display ) - 1;
 
-		dspCursorHome();
-		for ( y = p_screen->ys; y <= p_screen->ye; y++ ) {
-			for ( x = p_screen->xs; x <= p_screen->xe; x++ ) {
-				if ( x-p_screen->xs < SCR_XMAX_SIZE && y-p_screen->ys < SCR_YMAX_SIZE ) {
-					dspWrite( p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] );
+		dspCursorHome( p_display );
+		for ( y = ys; y <= ye; y++ ) {
+			for ( x = xs; x <= xe; x++ ) {
+				if ( x-xs < SCR_XMAX_SIZE && y-ys < SCR_YMAX_SIZE ) {
+					dspWrite( p_display, p_screen->Buffer[ y*SCR_XMAX_SIZE + x ] );
 				} else {
-					dspWrite( '~' );
+					dspWrite( p_display, '~' );
 				}
 			}
 		}
-		
+		#ifndef THREAD_DISPLAY_REPAINT
+		dspRefresh( p_display );
+		#endif
+	
 		CLRBIT(p_screen->status,f_srcContentChanged);
 		
 	}
+	
+	CLRBIT(p_screen->status,f_srcRepainting);
 	
 }

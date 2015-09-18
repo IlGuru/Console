@@ -1,10 +1,10 @@
 PROJ = console.exe
 CC = gcc
 OBJS = main.o common.o registry.o screen.o display.o keyboard.o
-LIBS = -lcurses -lpthread
+LDFLAGS =  -lpthread -lcurses
 
 console : $(OBJS)
-	$(CC) -o $(PROJ) $(OBJS) $(LIBS)
+	$(CC) -o $(PROJ) $(OBJS) $(LDFLAGS)
 
 main.o : display.c  main.c  prova_bit_oper.c  registry.c  screen.c  common.c  bit_oper.h  display.h  registry.h  screen.h  common.h
 	$(CC) -c main.c

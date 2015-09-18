@@ -1,47 +1,53 @@
 #include <stdio.h>
-#include <curses.h>
+#include "screen.h"
+
 #include <pthread.h>
 #include <windows.h>
 
+#include "./common.h"
+
 #include "./registry.h"
 #include "./screen.h"
-// #include "./keyboard.h"
-#include "./common.h"
+#include "./keyboard.h"
+
+#ifndef _KEYBOARD
+#ifdef __MINGW32__
+#include <ncursest/ncurses.h>
+#else
+#include <curses.h>
+#endif
+#endif
+
+#define MEMLOAD(mt,t,p,i) p = (t*) mt; mt = (uchar *) p + sizeof(t); i;
+#define MEMINIT(mt,me) mt = me
+#define DUMPMEM(s,mb,t,p) DumpMem( s, (int) ((uchar*)p-(uchar*)mb), (int) ((uchar*)p-(uchar*)mb+sizeof(t)-1) )	
 
 uchar memory[ 4096 ];
 uchar *mem_top;
 
-void Init() {
-
-	mem_top				= memory;
-	
-	#ifdef _REGISTRY	
-	p_registry			= (t_registry*) mem_top;
-	mem_top				= (unsigned char *) p_registry + sizeof(t_registry);
-	RegistryInit();
-	#endif	
-	
-	#ifdef _KEYBOARD	
-	p_keyboard			= (t_keyboard*) mem_top;
-	mem_top				= (unsigned char *) p_keyboard + sizeof(t_keyboard);
-	kbInit();
-	#endif	
-
-	#ifdef _SCREEN	
-	p_screen            = (t_screen*) mem_top;
-	mem_top				= (unsigned char *) p_screen + sizeof(t_screen);
-	scrInit();
-	// #ifndef THREAD_SCREEN_REPAINT
-	// DoScreenRepaint();
-	// #endif
-	#endif	
-	
-	cbreak(); // curses call to set no waiting for Enter key
-	noecho(); // curses call to set no echoing
-	
-}
-
 void MemInfo() {
+
+	#ifdef DSP_DEBUG_WIN
+	
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "MemInfo:");
+	p_debug->y_pos++;
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "BaseMem   %08X (%4d) Bytes", memory, sizeof(memory));
+	#ifdef _REGISTRY	
+	p_debug->y_pos++;
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "RegMem    %08X (%4d) Bytes", p_registry, sizeof(t_registry) );
+	#endif	
+	#ifdef _KEYBOARD	
+	p_debug->y_pos++;
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "KbMem     %08X (%4d) Bytes", p_keyboard, sizeof(t_keyboard) );
+	#endif	
+	#ifdef _SCREEN	
+	p_debug->y_pos++;
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "ScreenMem %08X (%4d) Bytes", p_screen, sizeof(t_screen) );
+	#endif	
+	
+	#else
+	
+	/*
 	printf("\n\r");
 	printf("\n\rMemInfo:\n\r");
 	printf( "BaseMem   %08X (%4d) Bytes\n\r", memory, sizeof(memory) );
@@ -58,11 +64,42 @@ void MemInfo() {
 	#ifdef _SCREEN	
 	printf( "ScreenMem %08X (%4d) Bytes\n\r", p_screen, sizeof(t_screen) );
 	#endif	
+	*/
+		
+	#endif	
+	
 }
 
-void DumpMem( int x_from, int x_to ) {
+void DumpMem( char* s, int x_from, int x_to ) {
 	int x,i;
+
+	#ifdef DSP_DEBUG_WIN
 	
+	p_debug->x_pos = 1;
+	p_debug->y_pos++;
+	p_debug->y_pos++;
+	mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "Dump %s ( %08X ):", s, &memory[x_from]);
+	i=0;
+	p_debug->x_pos = 1;
+	p_debug->y_pos++;
+	for ( x=x_from; x<=x_to; x++ ) {
+		if ( i>31 ) {
+			p_debug->x_pos = 1;
+			p_debug->y_pos++;
+			i=0;
+		}
+		if ( i==0 ) {
+			mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "%04X : ", x );
+			p_debug->x_pos += 7;
+		}
+		mvwprintw(p_debug->wMain, p_debug->y_pos, p_debug->x_pos, "%02X ", memory[x] );
+		p_debug->x_pos += 3;
+		i++;
+	}
+	
+	#else
+
+/*	
 	printf("\n\r");
 	printf( "\n\rDump ( %08X ):\n\r", &memory[x_from] );
 	i=0;
@@ -78,61 +115,81 @@ void DumpMem( int x_from, int x_to ) {
 		i++;
 	}
 	printf("\n\r");
+*/
+
+	#endif	
+
 }
 
 void DoScreenRepaint() {
-	// printf("\033[1;1H");	//	Cursore Home
-	// printf("\e[1;1H\e[2J");	//	Clear Screen
+
 	scrRepaint();
 
-	// printf("\n\r");
-	// printf("\n\r");
-
-	// MemInfo();
+	#ifdef DSP_DEBUG_WIN
+	
+	p_debug->x_pos = 1;
+	p_debug->y_pos = 1;
+	
+	MemInfo();
 	
 	#ifdef _REGISTRY	
-	// DumpMem( (int) ((unsigned char*)p_registry-(unsigned char*)memory), (int) ((unsigned char*)p_registry-(unsigned char*)memory+sizeof(t_registry)-1) );
+	DUMPMEM("REG: ", memory,t_registry,p_registry);
 	#endif
 	
 	#ifdef _KEYBOARD	
-	// DumpMem( (int) ((unsigned char*)p_keyboard-(unsigned char*)memory), (int) ((unsigned char*)p_keyboard-(unsigned char*)memory+sizeof(t_keyboard)-1) );
+	DUMPMEM("KBD: ", memory,t_keyboard,p_keyboard);
 	#endif
 	
 	#ifdef _SCREEN	
-	// DumpMem( (int) ((unsigned char*)p_screen-(unsigned char*)memory), (int) ((unsigned char*)p_screen-(unsigned char*)memory+sizeof(t_screen)-1) );
+	DUMPMEM("SCR: ", memory,t_screen,p_screen);
 	#endif
 
-	// printf("\n\rx: %d, y: %d, xs: %d, xe: %d, ys: %d, ye: %d\n", p_screen->x, p_screen->y, p_screen->xs, p_screen->xe, p_screen->ys, p_screen->ye);
-	// printf("\n\rx_pos: %d, y_pos: %d, BufPos: %d\n", p_screen->x_pos, p_screen->y_pos, (p_screen->y_pos*SCR_XMAX_SIZE + p_screen->x_pos));
+	dspInfo( "Frame:   ", p_debug,  p_frame );
+	dspInfo( "Display: ", p_debug,  p_display );
+	dspInfo( "Debug:   ", p_debug,  p_debug );
 	
+	wrefresh( p_debug->wMain );
+	
+	#else
+
+	/*
+	p_frame->y_pos = p_display->y_max + 2;
+	dspInfo( "Frame:   ", p_frame,  p_frame );
+	dspInfo( "Display: ", p_frame,  p_display );
+	
+	wrefresh( p_frame->wMain );
+	*/
+	
+	#endif
+
 }
 
-#ifdef THREAD_SCREEN_REPAINT
-pthread_t 	thScreenRepaint;
+void Init() {
 
-void *th_DoScreenRepaint( void *param ) {
-	// char *p_memory;
-	// p_memory = (char *) param;
+	MEMINIT(mem_top,memory);
 	
-	while ( 1 ) {
-		DoScreenRepaint();
-		sleepMs( 100 );
-	}
+	#ifdef _REGISTRY	
+	MEMLOAD(mem_top,t_registry,p_registry,RegistryInit());
+	#endif	
+	
+	#ifdef _KEYBOARD	
+	MEMLOAD(mem_top,t_keyboard,p_keyboard,kbInit());
+	#else
+	cbreak(); // curses call to set no waiting for Enter key
+	noecho(); // curses call to set no echoing
+	#endif	
 
-	pthread_exit(NULL);
+	#ifdef _SCREEN	
+	MEMLOAD(mem_top,t_screen,p_screen,scrInit( DoScreenRepaint ));
+	//MEMLOAD(mem_top,t_screen,p_screen,scrInit( scrRepaint ));
+	//MEMLOAD(mem_top,t_screen,p_screen,scrInit( NULL ));
+	// if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)memory ) ) {
+	// if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)DoScreenRepaint ) ) {
+	//if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, NULL ) ) {
+	//scrCreateThread( DoScreenRepaint );
+	#endif	
+	
 }
-#endif
-
-// #ifdef THREAD_KEYBOARD	
-// pthread_t 	thReadKB;
-// void *th_DoReadKB( void *param ) {
-	// while ( 1 ) {
-		// kbPutCh();
-		// /*sleepMs( 100 );*/
-	// }
-	// pthread_exit(NULL);
-// }	
-// #endif
 
 int main( int argc, char *argv[] ) {
 
@@ -142,21 +199,6 @@ int main( int argc, char *argv[] ) {
 	
 	Init();
 	
-	DoScreenRepaint();
-
-	#ifdef THREAD_SCREEN_REPAINT
-	// if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, (void *)memory ) ) {
-	if ( pthread_create( &thScreenRepaint, NULL, th_DoScreenRepaint, NULL ) {
-		printf("error creating th_DoScreenRepaint thread.\n");
-	}	
-	#endif
-
-	// #ifdef THREAD_KEYBOARD	
-	// if ( pthread_create( &thReadKB, NULL, th_DoReadKB, NULL ) ) {
-		// printf("error creating th_DoReadKB thread.\n");
-	// }	
-	// #endif
-
 	// DoScreenRepaint();
 	// printf( "\nGO" );
 	// sleepMs( 2000 );

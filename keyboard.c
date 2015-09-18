@@ -3,6 +3,8 @@
 //----------------------------------------------------
 //	Keyboard
 
+//----------------------------------------------------
+
 void kbCheckStatus() {
 	if ( p_keyboard->BufPos <= KB_BUFFER_MIN_POS ) {
 		SETBIT( p_keyboard->status , KB_BUFFER_EMPTY );
@@ -83,26 +85,45 @@ uchar kbGetCh() {
 	return c;
 }
 
-// #ifdef THREAD_KEYBOARD	
-// void *th_DoReadKB( void *param ) {
-	// while ( 1 ) {
-		// kbPutCh();
-		// /*sleepMs( 100 );*/
-	// }
-	// pthread_exit(NULL);
-// }	
-// #endif
+//----------------------------------------------------
+
+#ifdef THREAD_KEYBOARD	
+
+void *th_DoReadKB( void *param ) {
+	FNINPUT fCallBack;
+	fCallBack = (FNINPUT)(param);
+	
+	while ( 1 ) {
+		if ( fCallBack != NULL ) {
+			fCallBack();
+		} else {
+			kbPutCh();
+		}
+		#if KB_MS_REFRESH > 0
+		sleepMs( KB_MS_REFRESH );
+		#endif
+	}
+	pthread_exit(NULL);
+}	
+
+void kbCreateThread( FNINPUT fCallBack ) {
+	if ( pthread_create( &thReadKB, NULL, th_DoReadKB, fCallBack ) ) {
+		printf("error creating th_DoReadKB thread.\n");
+	}	
+}
+#endif
 
 void kbInit() {
+
 	kbClear();
+
+#ifdef THREAD_KEYBOARD	
+	//kbCreateThread( kbPutCh );
+	kbCreateThread( NULL );
+#endif
 
 	cbreak(); // curses call to set no waiting for Enter key
 	noecho(); // curses call to set no echoing
 
-	// #ifdef THREAD_KEYBOARD	
-	// if ( pthread_create( &p_keyboard->thReadKB, NULL, th_DoReadKB, NULL ) ) {
-		// printf("error creating th_DoReadKB thread.\n");
-	// }	
-	// #endif
 }
 

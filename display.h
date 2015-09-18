@@ -3,21 +3,30 @@
 #define _DISPLAY
 
 #define DSP_BOX
-//#define DSP_DEBUG
-// #define DSP_THREAD
+// #define THREAD_DISPLAY_REPAINT
+#define DSP_DEBUG_WIN
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef __MINGW32__
+#include <ncursest/ncurses.h>
+#else
 #include <curses.h>
-#ifdef DSP_THREAD
+#endif
+
+#ifdef THREAD_DISPLAY_REPAINT
 #include <pthread.h>
 #endif
-#include "./bit_oper.h"
+
+#include <string.h>
+
 #include "./common.h"
+#include "./bit_oper.h"
 
 
-#define DSP_XMAX_SIZE 10
-#define DSP_YMAX_SIZE 2
+#define DSP_XMAX_SIZE 40
+#define DSP_YMAX_SIZE 15
 
 
 #ifdef DSP_BOX
@@ -27,32 +36,42 @@
 
 #define DSP_POSX_MIN  0
 #define DSP_POSY_MIN  0
-#define DSP_POSX_MAX  ( DSP_XMAX_SIZE - 1 )
-#define DSP_POSY_MAX  ( DSP_YMAX_SIZE - 1 )
 
-#define fContentChanged	0
+#define DSP_XY_OFFSET  1
+
+#define DSP_MS_REFRESH		0
+
+#define f_dspContentChanged	0
+#define f_dspRepainting		1
 
 typedef struct {
+	WINDOW  *	wMain;
 	curscoord	x_pos;
 	curscoord	y_pos;
 	curscoord	x_max;
 	curscoord	y_max;	
-	WINDOW  *	wnd;
-#ifdef DSP_THREAD
-	char		status;
+#ifdef DSP_BOX	
+	curscoord	x_box;
+	curscoord	y_box;	
+#endif
+#ifdef THREAD_DISPLAY_REPAINT
 	pthread_t 	th;
-	int         rc;
 #endif	
+	char		status;
 } t_display;
 
+t_display *p_frame;
 t_display *p_display;
+#ifdef DSP_DEBUG_WIN
+t_display *p_debug;
+#endif
 
-#ifndef DSP_THREAD
+#ifndef THREAD_DISPLAY_REPAINT
 void dspRefresh();
 #endif
 
 void dspInit();
 
-void dspWrite( char dc );
+void dspWrite( t_display *p_dest, char dc );
 
 #endif
